@@ -1,0 +1,43 @@
+version: 2
+
+sources:
+  - name: raw_data
+    description: Raw data from various sources
+    tables:
+      - name: newsapi_articles
+        description: Raw articles from NewsAPI
+        columns:
+          - name: article_id
+            description: Unique identifier for the article
+          - name: title
+            description: Article title
+          - name: content
+            description: Article content
+          - name: published_at
+            description: Publication timestamp
+          - name: source_name
+            description: News source name
+          - name: url
+            description: Article URL
+
+models:
+  - name: stg_newsapi_articles
+    description: Cleaned and standardized NewsAPI articles
+    columns:
+      - name: article_id
+        description: Unique identifier for the article
+        tests:
+          - unique
+          - not_null
+      - name: title_clean
+        description: Cleaned article title
+        tests:
+          - not_null
+      - name: content_clean
+        description: Cleaned article content
+      - name: published_at
+        description: Publication timestamp
+        tests:
+          - not_null
+      - name: source_name_standardized
+        description: Standardized source name
