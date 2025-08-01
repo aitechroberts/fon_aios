@@ -1,0 +1,43 @@
+# Automation to trigger NLP processing after ingestion
+name: run-nlp-after-ingestion
+description: "Trigger NLP processing when ingestion completes"
+enabled: true
+
+trigger:
+  type: event
+  expect:
+    - "prefect.flow-run.Completed"
+  match_related:
+    prefect.resource.name: "base-ingestion"
+  posture: Reactive
+  threshold: 1
+  within: 30
+
+actions:
+  - type: run-deployment
+    deployment_id: "{{ prefect.deployments.nlp-processing.id }}"
+    parameters:
+      # Extract parquet paths from the triggering flow run
+      parquet_paths: "{{ event.resource.parameters.parquet_path }}"
+
+---
+# Automation to trigger KG update after NLP processing
+name: run-kg-after-nlp
+description: "Trigger knowledge graph update when NLP processing completes"
+enabled: true
+
+trigger:
+  type: event
+  expect:
+    - "prefect.flow-run.Completed"
+  match_related:
+    prefect.resource.name: "nlp-processing"
+  posture: Reactive
+  threshold: 1
+  within: 30
+
+actions:
+  - type: run-deployment
+    deployment_id: "{{ prefect.deployments.kg-update.id }}"
+    parameters:
+      processed_data_path: "{{ event.resource.result.output_path }}"

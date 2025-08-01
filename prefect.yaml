@@ -1,0 +1,122 @@
+# prefect.yaml
+name: fon-aios
+prefect-version: "3.0.0"
+
+# Build configuration
+build:
+  - prefect_azure.deployments.steps.build_docker_image:
+      id: build-gpu-image
+      requires: prefect-docker>=0.4.0
+      image_name: fonregistry.azurecr.io/nlp-langchain-gpu
+      dockerfile: docker/Dockerfile.gpu
+      tag: latest
+
+# Push configuration  
+push:
+  - prefect_azure.deployments.steps.push_docker_image:
+      requires: prefect-docker>=0.4.0
+      image_name: "{{ build-gpu-image.image_name }}"
+      tag: "{{ build-gpu-image.tag }}"
+
+# Pull configuration
+pull:
+  - prefect.deployments.steps.set_working_directory:
+      directory: /opt/fon-aios
+
+# Deployment definitions
+deployments:
+  # Base ingestion deployment
+  - name: base-ingestion
+    version: 1.0.0
+    tags: ["ingestion", "production"]
+    description: "Parameterized ingestion flow for all data sources"
+    entrypoint: flows/ingestion/base_ingestion_flow.py:base_ingestion_flow
+    work_pool:
+      name: cpu-worker-pool
+      work_queue_name: default
+    schedule:
+      cron: "0 11 * * *"
+      timezone: "America/New_York"
+    parameters:
+      source_class: "DefenseNewsSource"
+      lookback_days: 1
+    
+  # Defense News specific deployment
+  - name: defense-news-daily
+    version: 1.0.0
+    tags: ["ingestion", "defense-news", "production"]
+    description: "Daily Defense News ingestion"
+    entrypoint: flows/ingestion/base_ingestion_flow.py:base_ingestion_flow
+    work_pool:
+      name: cpu-worker-pool
+    schedule:
+      cron: "0 6,12,18 * * *"
+      timezone: "UTC"
+    parameters:
+      source_class: "DefenseNewsSource"
+      lookback_days: 1
+      
+  # NewsAPI deployment
+  - name: newsapi-defense
+    version: 1.0.0
+    tags: ["ingestion", "newsapi", "production"]
+    description: "NewsAPI defense sector ingestion"
+    entrypoint: flows/ingestion/base_ingestion_flow.py:base_ingestion_flow
+    work_pool:
+      name: cpu-worker-pool
+    schedule:
+      cron: "0 7,13,19 * * *"
+      timezone: "UTC"
+    parameters:
+      source_class: "NewsAPISource"
+      source_params:
+        query: "defense contract OR DARPA OR military technology"
+      lookback_days: 1
+
+  # NLP processing deployment (triggered by automation)
+  - name: nlp-processing
+    version: 1.0.0
+    tags: ["nlp", "gpu-required", "production"]
+    description: "GPU-accelerated NLP processing pipeline"
+    entrypoint: flows/processing/nlp_processing_flow.py:nlp_processing_pipeline
+    work_pool:
+      name: azure-container-pool
+      work_queue_name: gpu-queue
+      job_variables:
+        image: "{{ build-gpu-image.image_name }}:{{ build-gpu-image.tag }}"
+        gpu_count: 1
+        gpu_sku: "K80"
+        cpu: 4
+        memory: 16
+    parameters:
+      batch_size: 10
+
+  # Knowledge graph update deployment
+  - name: kg-update
+    version: 1.0.0
+    tags: ["knowledge-graph", "production"]
+    description: "Update Neo4j knowledge graph"
+    entrypoint: flows/knowledge_graph/graph_update_flow.py:knowledge_graph_update_flow
+    work_pool:
+      name: cpu-worker-pool
+
+# Blocks registration
+blocks:
+  - block_type: prefect_azure/azure-blob-storage-credentials
+    block_name: azure-storage-creds
+    data:
+      connection_string: "{{ $AZURE_STORAGE_CONNECTION_STRING }}"
+      
+  - block_type: prefect_azure/azure-blob-storage
+    block_name: fon-data-lake
+    data:
+      blob_storage_credentials: "{{ prefect.blocks.azure-blob-storage-credentials.azure-storage-creds }}"
+      container_name: fon-data-lake
+      base_path: raw-data/
+      
+  - block_type: prefect_azure/azure-blob-storage
+    block_name: fon-processed-data
+    data:
+      blob_storage_credentials: "{{ prefect.blocks.azure-blob-storage-credentials.azure-storage-creds }}"
+      container_name: fon-data-lake
+      base_path: processed-data/
