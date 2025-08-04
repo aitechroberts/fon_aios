@@ -1,35 +1,35 @@
 # Core
-prefect>=3.0.0
-prefect-azure>=0.3.0
-prefect-docker>=0.4.0
+prefect>=3.4.11
+prefect-azure
+prefect-docker
 
 # Data Processing
-pandas==2.1.4
-numpy==1.24.3
-pyarrow==14.0.1
-duckdb==0.9.2
-duckdb-azure==0.9.2
+pandas
+numpy
+pyarrow
+duckdb
+# duckdb-azure==0.9.2
 
 # LLM and NLP
-langchain==0.1.5
-langchain-experimental==0.0.50
-langchain-openai==0.0.5
-openai==1.12.0
-spacy==3.7.2
+langchain
+langchain-experimental
+langchain-openai
+openai
+spacy
 
 # Azure Integration
-azure-search-documents==11.4.0
-azure-identity==1.15.0
-azure-storage-blob==12.19.0
+azure-search-documents
+azure-identity
+azure-storage-blob
 
 # Graph Database
-neo4j==5.16.0
+neo4j
 
 # Data Validation
-great-expectations==0.18.8
-pydantic==2.5.3
+great-expectations
+pydantic
 
 # Utilities
-python-dotenv==1.0.0
-httpx==0.25.2
-feedparser==6.0.11
+python-dotenv
+httpx
+feedparser
