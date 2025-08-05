@@ -1,0 +1,62 @@
+# automations/embeddings_trigger.yaml
+# Event-driven automation to trigger embeddings after ingestion
+
+# Trigger embeddings when any news ingestion completes
+- name: trigger-embeddings-after-ingestion
+  description: Process embeddings when news ingestion completes successfully
+  enabled: true
+  
+  trigger:
+    type: event
+    expect:
+      - "prefect.flow-run.Completed"
+    match:
+      "prefect.resource.name": "News Ingestion"
+    posture: Reactive
+    threshold: 1
+    within: 30  # seconds
+  
+  actions:
+    - type: run-deployment
+      deployment: embeddings-processor
+      parameters:
+        # Extract parquet_path from the triggering flow's result
+        parquet_path: "{{ event.resource.result.parquet_path }}"
+
+---
+# Optional: Alert on ingestion failures
+- name: alert-on-ingestion-failure
+  description: Send alert when news ingestion fails
+  enabled: true
+  
+  trigger:
+    type: event
+    expect:
+      - "prefect.flow-run.Failed"
+    match:
+      "prefect.resource.name": "News Ingestion"
+  
+  actions:
+    - type: send-notification
+      block_document_id: "{{ prefect.blocks.email.admin-alerts }}"
+      subject: "News Ingestion Failed"
+      body: |
+        Flow: {{ event.resource.name }}
+        Run: {{ event.resource.flow_run_id }}
+        Time: {{ event.occurred }}
+        
+        Please check the logs for details.
+
+---
+# Optional: Daily summary of all processing
+- name: daily-processing-summary
+  description: Send daily summary of ingestion and embedding stats
+  enabled: true
+  
+  trigger:
+    type: time
+    cron: "0 23 * * *"  # 11 PM daily
+  
+  actions:
+    - type: run-deployment
+      deployment: generate-daily-summary  # You'd create this flow
