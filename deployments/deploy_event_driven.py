@@ -3,7 +3,7 @@ from prefect import serve
 from prefect.deployments import Deployment
 from prefect.server.schemas.schedules import CronSchedule
 from prefect.events import DeploymentEventTrigger
-from flows.ingestion.newsapi_ingestion import news_ingestion_flow
+from flows.ingestion.newsapi_topics_flow import news_ingestion_flow
 from flows.processing.embeddings_flow import embeddings_processing_flow
 import asyncio
 

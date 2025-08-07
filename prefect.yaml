@@ -25,53 +25,20 @@ pull:
 
 # Deployment definitions
 deployments:
-  # Base ingestion deployment
-  - name: base-ingestion
+
+  # NewsAPI.ai Topics Daily Ingestion
+  - name: newsapi-topics-daily
     version: 1.0.0
-    tags: ["ingestion", "production"]
-    description: "Parameterized ingestion flow for all data sources"
-    entrypoint: flows/ingestion/base_ingestion_flow.py:base_ingestion_flow
+    tags: ["ingestion", "newsapi-ai", "topics", "production"]
+    description: "Daily ingestion of all NewsAPI.ai topics with parallel processing"
+    entrypoint: flows/ingestion/newsapi_topics_flow.py:newsapi_topics_daily_flow
     work_pool:
       name: cpu-worker-pool
       work_queue_name: default
     schedule:
-      cron: "0 11 * * *"
-      timezone: "America/New_York"
-    parameters:
-      source_class: "DefenseNewsSource"
-      lookback_days: 1
-    
-  # Defense News specific deployment
-  - name: defense-news-daily
-    version: 1.0.0
-    tags: ["ingestion", "defense-news", "production"]
-    description: "Daily Defense News ingestion"
-    entrypoint: flows/ingestion/base_ingestion_flow.py:base_ingestion_flow
-    work_pool:
-      name: cpu-worker-pool
-    schedule:
-      cron: "0 6,12,18 * * *"
+      cron: "0 6 * * *"  # Run once daily at 6 AM UTC
       timezone: "UTC"
-    parameters:
-      source_class: "DefenseNewsSource"
-      lookback_days: 1
-      
-  # NewsAPI deployment
-  - name: newsapi-defense
-    version: 1.0.0
-    tags: ["ingestion", "newsapi", "production"]
-    description: "NewsAPI defense sector ingestion"
-    entrypoint: flows/ingestion/base_ingestion_flow.py:base_ingestion_flow
-    work_pool:
-      name: cpu-worker-pool
-    schedule:
-      cron: "0 7,13,19 * * *"
-      timezone: "UTC"
-    parameters:
-      source_class: "NewsAPISource"
-      source_params:
-        query: "defense contract OR DARPA OR military technology"
-      lookback_days: 1
+    parameters: {}  # No parameters needed, uses config file
 
   # NLP processing deployment (triggered by automation)
   - name: nlp-processing
