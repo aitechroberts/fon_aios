@@ -5,7 +5,8 @@ from neo4j import AsyncGraphDatabase
 from typing import List, Dict, Any
 import json
 from datetime import datetime
-import numpy as np
+import os
+
 
 @task(retries=2)
 async def load_processed_data(file_path: str) -> List[Dict[str, Any]]:

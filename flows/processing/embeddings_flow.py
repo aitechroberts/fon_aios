@@ -23,7 +23,7 @@ import io
 async def read_parquet_from_storage(parquet_path: str) -> List[Dict[str, Any]]:
     """Read Parquet file from storage and convert to list of dicts"""
     logger = get_run_logger()
-    storage = await AzureBlobStorageContainer.load("aios-data-lake")
+    storage = await AzureBlobStorageContainer.load("fon-data-lake")
     
     # Read Parquet file
     parquet_bytes = await storage.read_path(parquet_path)
