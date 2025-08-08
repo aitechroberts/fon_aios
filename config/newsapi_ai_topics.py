@@ -1,6 +1,16 @@
 # config/newsapi_topics.py
 """NewsAPI.ai Topic Configuration"""
 
+TEST_TOPIC = {
+    "defense_technology": {
+        "uri": "3d9d3ac4-4ee8-479a-bb16-040d8f7f13bd",  # e.g., "240f6a12-b9d8-40a6-b1c6-a220e31d08de"
+        "name": "DefenseNews",
+        "description": "DAll Topics Test",
+        "max_articles": 100,
+        "sort_by": "fq"  # or "fq" for relevance
+    }
+}
+
 # Topic URIs from NewsAPI.ai dashboard
 # Replace these with your actual topic URIs
 TOPICS = {

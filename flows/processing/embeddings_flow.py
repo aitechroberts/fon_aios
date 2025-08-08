@@ -2,8 +2,8 @@
 from prefect import flow, task, get_run_logger
 from prefect.artifacts import create_table_artifact
 from prefect.blocks.system import Secret
-from prefect_azure.blob_storage import AzureBlobStorageBlock
-from langchain_openai import OpenAIEmbeddings
+from prefect_azure.blob_storage import AzureBlobStorageContainer
+from langchain_openai import AzureOpenAIEmbeddings
 from azure.search.documents import SearchClient
 from azure.search.documents.indexes import SearchIndexClient
 from azure.search.documents.indexes.models import (
@@ -18,11 +18,12 @@ from datetime import datetime
 import os
 import io
 
+# raw-data/processed-parquet/newsapi_ai_defense_technology/2025/08/07/newsapi_ai_defense_technology_20250807_200206.parquet
 @task(retries=2, retry_delay_seconds=60)
 async def read_parquet_from_storage(parquet_path: str) -> List[Dict[str, Any]]:
     """Read Parquet file from storage and convert to list of dicts"""
     logger = get_run_logger()
-    storage = await AzureBlobStorageBlock.load("fon-data-lake")
+    storage = await AzureBlobStorageContainer.load("aios-data-lake")
     
     # Read Parquet file
     parquet_bytes = await storage.read_path(parquet_path)
@@ -59,7 +60,7 @@ async def generate_embeddings_batch(
     logger = get_run_logger()
     
     openai_key = await Secret.load("openai-api-key")
-    embeddings_model = OpenAIEmbeddings(api_key=openai_key.get())
+    embeddings_model = AzureOpenAIEmbeddings(api_key=openai_key.get())
     
     # Prepare texts
     texts = []

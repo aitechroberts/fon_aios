@@ -25,47 +25,71 @@ pull:
 
 # Deployment definitions
 deployments:
-
-  # NewsAPI.ai Topics Daily Ingestion
-  - name: newsapi-topics-daily
+  # NewsAPI.ai Single Topic Test
+  - name: newsapi-test
     version: 1.0.0
-    tags: ["ingestion", "newsapi-ai", "topics", "production"]
-    description: "Daily ingestion of all NewsAPI.ai topics with parallel processing"
-    entrypoint: flows/ingestion/newsapi_topics_flow.py:newsapi_topics_daily_flow
+    tags: ["ingestion", "newsapi-ai", "test"]
+    description: "Test ingestion of NewsAPI.ai with limited articles"
+    entrypoint: flows/ingestion/newsapi_single_topic_flow.py:newsapi_single_topic_flow
     work_pool:
       name: cpu-worker-pool
       work_queue_name: default
-    schedule:
-      cron: "0 6 * * *"  # Run once daily at 6 AM UTC
-      timezone: "UTC"
-    parameters: {}  # No parameters needed, uses config file
-
-  # NLP processing deployment (triggered by automation)
-  - name: nlp-processing
-    version: 1.0.0
-    tags: ["nlp", "gpu-required", "production"]
-    description: "GPU-accelerated NLP processing pipeline"
-    entrypoint: flows/processing/nlp_processing_flow.py:nlp_processing_pipeline
-    work_pool:
-      name: azure-container-pool
-      work_queue_name: gpu-queue
-      job_variables:
-        image: "{{ build-gpu-image.image_name }}:{{ build-gpu-image.tag }}"
-        gpu_count: 1
-        gpu_sku: "K80"
-        cpu: 4
-        memory: 16
+    schedule: null  # Manual trigger for testing
     parameters:
-      batch_size: 10
+      max_articles: 10
 
-  # Knowledge graph update deployment
-  - name: kg-update
+  # Embeddings Processing Deployment
+  - name: embeddings-processing
     version: 1.0.0
-    tags: ["knowledge-graph", "production"]
-    description: "Update Neo4j knowledge graph"
-    entrypoint: flows/knowledge_graph/graph_update_flow.py:knowledge_graph_update_flow
+    tags: ["processing", "embeddings", "test"]
+    description: "Process embeddings and index to Azure AI Search"
+    entrypoint: flows/processing/embeddings_flow.py:embeddings_processing_flow
     work_pool:
       name: cpu-worker-pool
+      work_queue_name: default
+    schedule: null  # Event-driven only
+    parameters: {}
+
+  # # NewsAPI.ai Topics Daily Ingestion
+  # - name: newsapi-topics-daily
+  #   version: 1.0.0
+  #   tags: ["ingestion", "newsapi-ai", "topics", "production"]
+  #   description: "Daily ingestion of all NewsAPI.ai topics with parallel processing"
+  #   entrypoint: flows/ingestion/newsapi_topics_flow.py:newsapi_topics_daily_flow
+  #   work_pool:
+  #     name: cpu-worker-pool
+  #     work_queue_name: default
+  #   schedule:
+  #     cron: "0 6 * * *"  # Run once daily at 6 AM UTC
+  #     timezone: "UTC"
+  #   parameters: {}  # No parameters needed, uses config file
+
+  # # NLP processing deployment (triggered by automation)
+  # - name: nlp-processing
+  #   version: 1.0.0
+  #   tags: ["nlp", "gpu-required", "production"]
+  #   description: "GPU-accelerated NLP processing pipeline"
+  #   entrypoint: flows/processing/nlp_processing_flow.py:nlp_processing_pipeline
+  #   work_pool:
+  #     name: azure-container-pool
+  #     work_queue_name: gpu-queue
+  #     job_variables:
+  #       image: "{{ build-gpu-image.image_name }}:{{ build-gpu-image.tag }}"
+  #       gpu_count: 1
+  #       gpu_sku: "K80"
+  #       cpu: 4
+  #       memory: 16
+  #   parameters:
+  #     batch_size: 10
+
+  # # Knowledge graph update deployment
+  # - name: kg-update
+  #   version: 1.0.0
+  #   tags: ["knowledge-graph", "production"]
+  #   description: "Update Neo4j knowledge graph"
+  #   entrypoint: flows/knowledge_graph/graph_update_flow.py:knowledge_graph_update_flow
+  #   work_pool:
+  #     name: cpu-worker-pool
 
 # Blocks registration
 blocks:

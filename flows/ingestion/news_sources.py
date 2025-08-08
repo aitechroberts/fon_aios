@@ -5,9 +5,8 @@ import hashlib
 import httpx
 from datetime import datetime
 from typing import Dict, List, Any, Iterator
-from flows.ingestion.base_ingestion_flow import DataSource
 
-class NewsAPIaiTopicSource(DataSource):
+class NewsAPIaiTopicSource():
     """NewsAPI.ai Topic-based ingestion"""
     
     def __init__(self, topic_uri: str, topic_name: str, topic_key: str):
@@ -24,58 +23,44 @@ class NewsAPIaiTopicSource(DataSource):
     async def fetch_data_stream(self, params: Dict[str, Any]) -> Iterator[Dict]:
         """Stream articles from NewsAPI.ai topic"""
         
-        max_articles = params.get('max_articles', 500)
-        sort_by = params.get('sort_by', 'date')  # 'date' or 'fq' (relevance)
-        days_back = params.get('days_back', 1)  # Default to 1 day for daily runs
+        max_articles = params.get('max_articles', 100)
+        sort_by = params.get('sort_by', 'fq')  # 'date' or 'fq' (relevance)
         
         articles_fetched = 0
-        page = 1
         
-        while articles_fetched < max_articles:
-            request_params = {
-                "apiKey": self.api_key,
-                "uri": self.topic_uri,
-                "infoArticleBodyLen": -1,
-                "resultType": "articles",
-                "articlesSortBy": sort_by,
-                "articlesCount": min(100, max_articles - articles_fetched),
-                "articlesPage": page,
-                "maxDaysBack": days_back
-            }
+        # Only these parameters go to the API
+        request_params = {
+            "apiKey": self.api_key,
+            "uri": self.topic_uri,
+            "infoArticleBodyLen": -1,
+            "resultType": "articles",
+            "articlesSortBy": sort_by,
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                self.base_url,
+                json=request_params,
+                headers={"Content-Type": "application/json"},
+                timeout=30
+            )
             
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    self.base_url,
-                    json=request_params,
-                    headers={"Content-Type": "application/json"},
-                    timeout=30
-                )
+            if response.status_code != 200:
+                print(f"Error fetching {self.topic_name}: {response.status_code}")
+                return
                 
-                if response.status_code != 200:
-                    print(f"Error fetching {self.topic_name}: {response.status_code}")
-                    break
-                    
-                data = response.json()
-                articles = data.get('articles', {}).get('results', [])
-                
-                if not articles:
-                    break
-                
-                for article in articles:
-                    yield {
-                        'raw_article': article,
-                        'fetched_at': datetime.utcnow().isoformat(),
-                        'topic_name': self.topic_name,
-                        'topic_key': self.topic_key
-                    }
-                    articles_fetched += 1
-                
-                page += 1
-                
-                # Check if we've gotten all available
-                total_available = data.get('articles', {}).get('totalResults', 0)
-                if articles_fetched >= total_available:
-                    break
+            data = response.json()
+            articles = data.get('articles', {}).get('results', [])
+            
+            # Yield articles up to max_articles limit
+            for article in articles[:max_articles]:
+                yield {
+                    'raw_article': article,
+                    'fetched_at': datetime.utcnow().isoformat(),
+                    'topic_name': self.topic_name,
+                    'topic_key': self.topic_key
+                }
+                articles_fetched += 1
     
     def transform_data(self, raw_item: Dict) -> Dict:
         """Transform NewsAPI.ai article to standard format"""

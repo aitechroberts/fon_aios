@@ -1,7 +1,7 @@
 # flows/ingestion/newsapi_topics_flow.py
 from prefect import flow, task, get_run_logger
 from prefect.artifacts import create_table_artifact, create_link_artifact
-from prefect_azure.blob_storage import AzureBlobStorageBlock
+from prefect_azure.blob_storage import AzureBlobStorageContainer
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 import json
@@ -9,12 +9,8 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import os
 import sys
-
-# Add project root to path
-sys.path.append('/opt/airflow/src')
-
-from flows.ingestion.newsapi_sources import NewsAPIaiTopicSource
-from config.newsapi_topics import TOPICS
+from flows.ingestion.news_sources import NewsAPIaiTopicSource
+from config.newsapi_ai_topics import TOPICS
 
 @task(retries=2, retry_delay_seconds=60)
 async def ingest_single_topic(
@@ -55,7 +51,7 @@ async def ingest_single_topic(
     }
     
     # Load storage
-    storage = await AzureBlobStorageBlock.load(storage_block_name)
+    storage = await AzureBlobStorageContainer.load(storage_block_name)
     
     timestamp = datetime.utcnow()
     date_path = timestamp.strftime('%Y/%m/%d')
@@ -185,9 +181,9 @@ async def create_combined_parquet(
     if not successful_results:
         logger.warning("No successful topic ingestions to combine")
         return ""
-    
-    storage = await AzureBlobStorageBlock.load(storage_block_name)
-    
+
+    storage = await AzureBlobStorageContainer.load(storage_block_name)
+
     # Read all individual Parquet files and combine
     combined_tables = []
     
