@@ -5,6 +5,8 @@ from datetime import datetime
 from dotenv import load_dotenv
 from flows.processing.embeddings_flow import embeddings_processing_flow
 
+
+# processed-parquet/newsapi_ai_defense_technology/2025/08/07/newsapi_ai_defense_technology_20250807_200206.parquet
 load_dotenv()
 
 async def verify_azure_openai_config():

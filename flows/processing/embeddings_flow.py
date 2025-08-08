@@ -1,7 +1,6 @@
 # flows/processing/embeddings_flow.py
 from prefect import flow, task, get_run_logger
 from prefect.artifacts import create_table_artifact
-from prefect.blocks.system import Secret
 from prefect_azure.blob_storage import AzureBlobStorageContainer
 from langchain_openai import AzureOpenAIEmbeddings
 from azure.search.documents import SearchClient
@@ -17,8 +16,13 @@ import pyarrow as pa
 from datetime import datetime
 import os
 import io
+import sys
 
-# raw-data/processed-parquet/newsapi_ai_defense_technology/2025/08/07/newsapi_ai_defense_technology_20250807_200206.parquet
+# Add blocks to path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from blocks.azure_openai import AzureOpenAICredentials
+from blocks.azure_search import AzureAISearchCredentials
+
 @task(retries=2, retry_delay_seconds=60)
 async def read_parquet_from_storage(parquet_path: str) -> List[Dict[str, Any]]:
     """Read Parquet file from storage and convert to list of dicts"""
@@ -56,11 +60,19 @@ async def generate_embeddings_batch(
     articles: List[Dict[str, Any]],
     batch_size: int = 20
 ) -> List[Dict[str, Any]]:
-    """Generate embeddings for articles in batches"""
+    """Generate embeddings for articles using Azure OpenAI"""
     logger = get_run_logger()
     
-    openai_key = await Secret.load("openai-api-key")
-    embeddings_model = AzureOpenAIEmbeddings(api_key=openai_key.get())
+    # Load Azure OpenAI credentials from block
+    azure_openai = await AzureOpenAICredentials.load("azure-openai")
+    
+    # Create embeddings model with Azure configuration
+    embeddings_model = AzureOpenAIEmbeddings(
+        azure_endpoint=azure_openai.endpoint,
+        azure_deployment=azure_openai.embedding_deployment,
+        api_key=azure_openai.api_key,
+        api_version=azure_openai.api_version
+    )
     
     # Prepare texts
     texts = []
@@ -95,12 +107,12 @@ async def ensure_search_index() -> str:
     """Ensure Azure AI Search index exists"""
     logger = get_run_logger()
     
-    service_name = os.getenv("AZURE_SEARCH_SERVICE_NAME")
-    admin_key = await Secret.load("azure-search-key")
-    index_name = "fon-defense-intelligence"
+    # Load Azure Search credentials from block
+    azure_search = await AzureAISearchCredentials.load("azure-search")
     
-    endpoint = f"https://{service_name}.search.windows.net"
-    credential = AzureKeyCredential(admin_key.get())
+    endpoint = azure_search.endpoint
+    credential = AzureKeyCredential(azure_search.admin_key)
+    index_name = azure_search.index_name
     
     index_client = SearchIndexClient(endpoint=endpoint, credential=credential)
     
@@ -121,8 +133,8 @@ async def ensure_search_index() -> str:
         SearchField(name="source", type=SearchFieldDataType.String, filterable=True, facetable=True),
         SearchField(name="published_at", type=SearchFieldDataType.String, filterable=True, sortable=True),
         SearchField(name="url", type=SearchFieldDataType.String),
-        SearchField(name="author", type=SearchFieldDataType.String, filterable=True),
-        SearchField(name="query_used", type=SearchFieldDataType.String, filterable=True, facetable=True),
+        SearchField(name="topic_name", type=SearchFieldDataType.String, filterable=True, facetable=True),
+        SearchField(name="topic_key", type=SearchFieldDataType.String, filterable=True),
         SearchField(name="ingestion_timestamp", type=SearchFieldDataType.String, filterable=True),
         
         # Vector field
@@ -175,11 +187,11 @@ async def index_to_search(
     """Index articles with embeddings to Azure AI Search"""
     logger = get_run_logger()
     
-    service_name = os.getenv("AZURE_SEARCH_SERVICE_NAME")
-    admin_key = await Secret.load("azure-search-key")
+    # Load Azure Search credentials from block
+    azure_search = await AzureAISearchCredentials.load("azure-search")
     
-    endpoint = f"https://{service_name}.search.windows.net"
-    credential = AzureKeyCredential(admin_key.get())
+    endpoint = azure_search.endpoint
+    credential = AzureKeyCredential(azure_search.admin_key)
     
     search_client = SearchClient(
         endpoint=endpoint,
@@ -203,11 +215,11 @@ async def index_to_search(
                 'content': article.get('content', ''),
                 'description': article.get('description', ''),
                 'source': article.get('source', ''),
-                'published_at': article.get('published_at', ''),
+                'published_at': str(article.get('published_at', '')),  # Convert to string
                 'url': article.get('url', ''),
-                'author': article.get('author', ''),
-                'query_used': article.get('query_used', ''),
-                'ingestion_timestamp': article.get('ingestion_timestamp', ''),
+                'topic_name': article.get('topic_name', ''),
+                'topic_key': article.get('topic_key', ''),
+                'ingestion_timestamp': str(article.get('ingestion_timestamp', '')),  # Convert to string
                 'content_vector': article['embedding']
             }
             search_docs.append(search_doc)
